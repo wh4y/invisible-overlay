@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+      }
+      .pill {
+        width: 120px;
+        height: 28px;
+        border-radius: 999px;
+        background: rgba(128, 0, 32, 0.75);
+        border: 1px solid rgba(255, 255, 255, 0.7);
+        box-shadow: 0 2px 8px rgba(128, 0, 32, 0.3);
+        -webkit-app-region: no-drag;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="pill" title="Drag to move"></div>
+    <script>
+      const { ipcRenderer } = require("electron");
+      const pill = document.querySelector(".pill");
+      let dragging = false;
+      pill.addEventListener("mousedown", (ev) => {
+        dragging = true;
+        ipcRenderer.send("overlay:drag-begin", ev.screenX, ev.screenY);
+        const onMove = (e) => {
+          if (!dragging) return;
+          ipcRenderer.send("overlay:drag-move", e.screenX, e.screenY);
+        };
+        const onUp = () => {
+          dragging = false;
+          window.removeEventListener("mousemove", onMove);
+          window.removeEventListener("mouseup", onUp);
+          ipcRenderer.send("overlay:drag-end");
+        };
+        window.addEventListener("mousemove", onMove);
+        window.addEventListener("mouseup", onUp);
+      });
+    </script>
+  </body>
+</html>

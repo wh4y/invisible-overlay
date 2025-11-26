@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' https://esm.sh; connect-src ws: wss: https:; style-src 'self' 'unsafe-inline'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Overlay</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        -webkit-user-select: none;
+        user-select: none;
+        font-family: -apple-system, system-ui, Segoe UI, Roboto, Helvetica,
+          Arial, sans-serif;
+        /* Let clicks pass through by default; we will enable them on the drag handle only */
+        pointer-events: none;
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+      }
+      .container {
+        display: flex;
+        flex-direction: column;
+        background: rgba(0, 0, 0, 0.4);
+        color: #fff;
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin: 8px;
+        max-width: calc(100vw - 16px);
+        max-height: calc(100vh - 16px);
+        box-shadow: none;
+        backdrop-filter: blur(8px);
+        font-size: 16px;
+        line-height: 1.35;
+        /* Keep pass-through on the main content */
+        pointer-events: none;
+        overflow: hidden;
+      }
+      .title {
+        font-weight: 600;
+        font-size: 14px;
+        opacity: 0.9;
+        margin: 16px 0 8px 0;
+        letter-spacing: 0.2px;
+      }
+      .notes {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        overflow-y: auto;
+        flex: 1;
+        min-height: 0;
+      }
+      
+      /* TipTap Editor Styles */
+      .tiptap-editor {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        pointer-events: auto;
+        -webkit-user-select: text;
+        user-select: text;
+        color: #fff;
+        font-size: 16px;
+        line-height: 1.5;
+        padding: 4px;
+        outline: none;
+      }
+      
+      .tiptap-editor:focus {
+        outline: none;
+      }
+      
+      .tiptap-editor p {
+        margin: 0.5em 0;
+      }
+      
+      .tiptap-editor p:first-child {
+        margin-top: 0;
+      }
+      
+      .tiptap-editor p:last-child {
+        margin-bottom: 0;
+      }
+      
+      .hint {
+        margin-top: 10px;
+        font-size: 12px;
+        opacity: 0.7;
+      }
+
+      * {
+        white-space: pre-wrap;
+      }
+      /* drag/resizer now live in separate overlay windows */
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="title">Notes</div>
+      <div id="tiptap-editor" class="tiptap-editor"></div>
+      <div class="hint" id="hint">
+        Toggle: Ctrl+Shift+Space • Hide: Ctrl+Shift+H • Reset: Ctrl+Shift+R
+      </div>
+    </div>
+    <script type="module">
+      // Import Yjs, y-websocket, TipTap and collaboration extension
+      import * as Y from 'https://esm.sh/yjs@13.6.10';
+      import { WebsocketProvider } from 'https://esm.sh/y-websocket@1.5.0';
+      import { Editor } from 'https://esm.sh/@tiptap/core@2.1.13';
+      import StarterKit from 'https://esm.sh/@tiptap/starter-kit@2.1.13';
+      import Collaboration from 'https://esm.sh/@tiptap/extension-collaboration@2.1.13';
+      import CollaborationCursor from 'https://esm.sh/@tiptap/extension-collaboration-cursor@2.1.13';
+      
+      const editorElement = document.getElementById("tiptap-editor");
+      const placeholder = "Connecting to Yjs server...";
+      
+      // Yjs configuration
+      const YJS_WS_ENDPOINT = "wss://yjs-test.onrender.com";
+      const YJS_ROOM = "demo-room";
+      
+      console.log("[overlay] Connecting to Yjs server:", YJS_WS_ENDPOINT, "room:", YJS_ROOM);
+      
+      // Create Yjs document
+      const ydoc = new Y.Doc();
+      
+      // Get or create the XML fragment for TipTap (TipTap uses 'prosemirror' as the fragment name)
+      const yxmlFragment = ydoc.getXmlFragment('prosemirror');
+      
+      console.log("[overlay] Created Yjs XML fragment: prosemirror");
+      
+      // Connect to Yjs WebSocket server
+      const provider = new WebsocketProvider(YJS_WS_ENDPOINT, YJS_ROOM, ydoc);
+      
+      // Initialize TipTap editor with Yjs collaboration
+      let editor = null;
+      
+      provider.on("status", ({ status }) => {
+        console.log("[overlay] Yjs connection status:", status);
+        if (status === "connected") {
+          console.log("[overlay] ✅ Connected to Yjs server");
+          
+          // Initialize TipTap editor after connection
+          if (!editor) {
+            editor = new Editor({
+              element: editorElement,
+              extensions: [
+                StarterKit,
+                Collaboration.configure({
+                  fragment: yxmlFragment,
+                }),
+                CollaborationCursor.configure({
+                  provider: provider,
+                }),
+              ],
+              editorProps: {
+                attributes: {
+                  class: 'tiptap-editor',
+                },
+              },
+            });
+            
+            console.log("[overlay] ✅ TipTap editor initialized with Yjs collaboration");
+          }
+        } else if (status === "disconnected") {
+          editorElement.textContent = "Disconnected from Yjs server. Reconnecting...";
+          console.warn("[overlay] ⚠️  Disconnected from Yjs server");
+        } else if (status === "connecting") {
+          editorElement.textContent = "Connecting to Yjs server...";
+          console.log("[overlay] 🔄 Connecting to Yjs server...");
+        }
+      });
+      
+      provider.on("connection-error", (error) => {
+        console.error("[overlay] ❌ Connection error:", error);
+        editorElement.textContent = "Connection error. Retrying...";
+      });
+      
+      provider.on("connection-close", (event) => {
+        console.warn("[overlay] ⚠️  Connection closed:", event);
+      });
+      
+      // Initial placeholder
+      editorElement.textContent = placeholder;
+      
+      // Debug: Check if WebSocket is connecting
+      setTimeout(() => {
+        console.log("[overlay] Provider state:", {
+          wsconnected: provider.wsconnected,
+          wsconnecting: provider.wsconnecting,
+          synced: provider.synced
+        });
+      }, 2000);
+    </script>
+  </body>
+</html>

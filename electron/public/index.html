@@ -1,0 +1,148 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Support App Control</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        color: #0f172a;
+        background: #f8fafc;
+      }
+      .wrap {
+        max-width: 720px;
+        margin: 24px auto;
+        padding: 0 16px;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 12px 0;
+      }
+      .bar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      textarea {
+        width: 100%;
+        min-height: 240px;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        padding: 12px 12px;
+        font-size: 15px;
+        line-height: 1.4;
+        outline: none;
+        resize: vertical;
+        background: #fff;
+      }
+      .hint {
+        margin-top: 8px;
+        font-size: 12px;
+        color: #475569;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border: 1px dashed #94a3b8;
+        border-radius: 999px;
+        background: #fff;
+        font-size: 12px;
+        color: #334155;
+      }
+      .btn {
+        appearance: none;
+        border: none;
+        background: #0ea5e9;
+        color: #fff;
+        padding: 8px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      .btn.secondary {
+        background: #64748b;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Support App — Control</h1>
+      <div class="bar">
+        <span class="pill">Overlay toggle: Cmd/Ctrl+Shift+Space</span>
+        <span id="status" class="pill" style="border-style: solid;">WS: connecting…</span>
+        <button id="clear" class="btn secondary">Clear</button>
+        <button id="demo" class="btn">Demo text</button>
+      </div>
+      <textarea id="notes" placeholder="Type notes here. They will appear in the overlay."></textarea>
+      <div class="hint">Open the overlay by running the Electron app. This page pushes text live via WebSocket to ws://127.0.0.1:4317.</div>
+    </div>
+    <script>
+      const notes = document.getElementById('notes');
+      const clearBtn = document.getElementById('clear');
+      const demoBtn = document.getElementById('demo');
+      let ws;
+      const status = document.getElementById('status');
+      function connect() {
+        const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
+        ws = new WebSocket(WS_URL);
+        ws.onopen = () => {
+          console.log('[control] ws connected to', WS_URL);
+          if (status) status.textContent = 'WS: connected';
+          const cached = localStorage.getItem('support_app_notes') || '';
+          if (cached) {
+            ws.send(JSON.stringify({ type: 'set', text: cached }));
+          }
+        };
+        ws.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data);
+            if ((msg.type === 'init' || msg.type === 'update') && typeof msg.text === 'string') {
+              if (notes.value !== msg.text) {
+                notes.value = msg.text;
+                localStorage.setItem('support_app_notes', msg.text);
+              }
+            }
+          } catch {}
+        };
+        ws.onerror = (ev) => {
+          console.error('[control] ws error to', WS_URL, ev);
+          if (status) status.textContent = 'WS: error';
+        };
+        ws.onclose = () => {
+          console.warn('[control] ws closed; reconnecting…');
+          if (status) status.textContent = 'WS: disconnected';
+          setTimeout(connect, 800);
+        };
+      }
+      connect();
+      notes.addEventListener('input', () => {
+        const text = notes.value;
+        localStorage.setItem('support_app_notes', text);
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'set', text }));
+        }
+      });
+      clearBtn.addEventListener('click', () => {
+        notes.value = '';
+        notes.dispatchEvent(new Event('input'));
+      });
+      demoBtn.addEventListener('click', () => {
+        const demo = [
+          'Intro: 20s elevator pitch',
+          'Key wins: system at 10M MAU, 35% latency cut',
+          'Questions: team ownership, release cadence, success metrics',
+        ].join('\\n');
+        notes.value = demo;
+        notes.dispatchEvent(new Event('input'));
+      });
+    </script>
+  </body>
+  </html>
+
+

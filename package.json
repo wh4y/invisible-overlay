@@ -1,0 +1,60 @@
+{
+  "name": "support_app",
+  "version": "0.1.0",
+  "private": true,
+  "main": "electron/main.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "build:mac": "electron-builder --mac dmg",
+    "build:overlay": "cd electron/overlay-react && npm install && npm run build",
+    "build:overlay:static": "cd electron/overlay-react && npm install && npm run build:static"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "electron": "^30.5.1",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.example.supportapp",
+    "productName": "Support App",
+    "files": [
+      "electron/**",
+      "!electron/overlay-react/src/**",
+      "!electron/overlay-react/node_modules/**",
+      "!electron/overlay-react/package.json",
+      "!electron/overlay-react/vite.config.js",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg"
+        }
+      ],
+      "hardenedRuntime": false
+    },
+    "dmg": {
+      "backgroundColor": "#1c1c1c",
+      "iconSize": 128,
+      "contents": [
+        {
+          "x": 130,
+          "y": 220,
+          "type": "file"
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
+  }
+}

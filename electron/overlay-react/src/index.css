@@ -1,0 +1,197 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  /* Let clicks pass through by default; we will enable them on the drag handle only */
+  pointer-events: none;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, rgba(30, 30, 30, 0.95) 0%, rgba(20, 20, 20, 0.98) 100%);
+  color: #e0e0e0;
+  border-radius: 16px;
+  padding: 20px 24px;
+  margin: 12px;
+  width: calc(100% - 24px);
+  height: calc(100% - 24px);
+  max-width: calc(100% - 24px);
+  max-height: calc(100% - 24px);
+  min-width: 0;
+  min-height: 0;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 
+              0 2px 8px rgba(0, 0, 0, 0.3),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 15px;
+  line-height: 1.5;
+  /* Keep pass-through on the main content */
+  pointer-events: none;
+  overflow: hidden;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.title {
+  font-weight: 700;
+  font-size: 15px;
+  color: #ffffff;
+  margin: 0 0 16px 0;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  opacity: 0.95;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title::before {
+  content: '📝';
+  font-size: 16px;
+  opacity: 0.8;
+}
+
+/* TipTap Editor Styles */
+.tiptap-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  pointer-events: auto;
+  -webkit-user-select: text;
+  user-select: text;
+  color: #e8e8e8;
+  font-size: 15px;
+  line-height: 1.6;
+  padding: 12px 16px;
+  outline: none;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.2s ease;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.tiptap-editor::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tiptap-editor::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tiptap-editor::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.tiptap-editor::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.tiptap-editor:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 0 2px rgba(100, 150, 255, 0.2);
+}
+
+.tiptap-editor p {
+  margin: 0.6em 0;
+  color: #e8e8e8;
+}
+
+.tiptap-editor p:first-child {
+  margin-top: 0;
+}
+
+.tiptap-editor p:last-child {
+  margin-bottom: 0;
+}
+
+.tiptap-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+  height: 0;
+}
+
+.tiptap-editor strong {
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.tiptap-editor em {
+  font-style: italic;
+  color: #d0d0d0;
+}
+
+.tiptap-editor code {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9em;
+  color: #ffd700;
+}
+
+.hint {
+  margin-top: 14px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  opacity: 0.8;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hint::before {
+  content: '💡';
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+* {
+  white-space: pre-wrap;
+}
+
+/* Selection styles */
+::selection {
+  background: rgba(100, 150, 255, 0.3);
+  color: #ffffff;
+}
+
+::-moz-selection {
+  background: rgba(100, 150, 255, 0.3);
+  color: #ffffff;
+}
+

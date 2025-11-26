@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      }
+      .room-control {
+        width: 240px;
+        height: 80px;
+        border-radius: 8px;
+        background: rgba(128, 0, 32, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.7);
+        box-shadow: 0 2px 8px rgba(128, 0, 32, 0.3);
+        padding: 8px;
+        box-sizing: border-box;
+        -webkit-app-region: no-drag;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .room-input-row {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+      }
+      .room-label {
+        color: white;
+        font-size: 11px;
+        font-weight: 500;
+        min-width: 35px;
+      }
+      .room-input {
+        flex: 1;
+        height: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        padding: 0 6px;
+        font-size: 11px;
+        outline: none;
+      }
+      .room-input:focus {
+        border-color: rgba(255, 255, 255, 0.6);
+        background: rgba(255, 255, 255, 0.15);
+      }
+      .room-input::placeholder {
+        color: rgba(255, 255, 255, 0.5);
+      }
+      .button-row {
+        display: flex;
+        gap: 4px;
+      }
+      .room-btn {
+        flex: 1;
+        height: 26px;
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        outline: none;
+        transition: background 0.15s;
+      }
+      .room-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+      .room-btn:active {
+        background: rgba(255, 255, 255, 0.25);
+      }
+      .room-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .status-text {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 10px;
+        text-align: center;
+        margin-top: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="room-control">
+      <div class="room-input-row">
+        <label class="room-label">Room:</label>
+        <input 
+          type="text" 
+          class="room-input" 
+          id="roomInput" 
+          placeholder="Enter room name/ID"
+        />
+      </div>
+      <div class="button-row">
+        <button class="room-btn" id="joinBtn">Join</button>
+        <button class="room-btn" id="leaveBtn">Leave</button>
+      </div>
+      <div class="status-text" id="statusText">Not connected</div>
+    </div>
+    <script>
+      const { ipcRenderer } = require("electron");
+      
+      const roomInput = document.getElementById('roomInput');
+      const joinBtn = document.getElementById('joinBtn');
+      const leaveBtn = document.getElementById('leaveBtn');
+      const statusText = document.getElementById('statusText');
+      
+      let currentRoom = '';
+      let isConnected = false;
+      
+      // Initialize UI state
+      updateUI();
+      
+      // Join room button click
+      joinBtn.addEventListener('click', () => {
+        const roomName = roomInput.value.trim();
+        if (!roomName) {
+          statusText.textContent = 'Enter room name first';
+          return;
+        }
+        
+        statusText.textContent = 'Joining...';
+        joinBtn.disabled = true;
+        
+        ipcRenderer.send('room:join', roomName);
+      });
+      
+      // Leave room button click
+      leaveBtn.addEventListener('click', () => {
+        statusText.textContent = 'Leaving...';
+        leaveBtn.disabled = true;
+        
+        ipcRenderer.send('room:leave');
+      });
+      
+      // Enter key in input field
+      roomInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          joinBtn.click();
+        }
+      });
+      
+      // Listen for room status updates from main process
+      ipcRenderer.on('room:status', (event, { room, connected }) => {
+        currentRoom = room || '';
+        isConnected = connected;
+        
+        if (connected && room) {
+          statusText.textContent = `Connected to: ${room}`;
+          roomInput.value = room;
+        } else {
+          statusText.textContent = 'Not connected';
+          currentRoom = '';
+        }
+        
+        updateUI();
+      });
+      
+      // Listen for join/leave results
+      ipcRenderer.on('room:join-result', (event, { success, room, error }) => {
+        if (success) {
+          currentRoom = room;
+          isConnected = true;
+          statusText.textContent = `Connected to: ${room}`;
+          roomInput.value = room;
+        } else {
+          statusText.textContent = error || 'Failed to join room';
+        }
+        updateUI();
+      });
+      
+      ipcRenderer.on('room:leave-result', (event, { success, error }) => {
+        if (success) {
+          currentRoom = '';
+          isConnected = false;
+          statusText.textContent = 'Not connected';
+        } else {
+          statusText.textContent = error || 'Failed to leave room';
+        }
+        updateUI();
+      });
+      
+      function updateUI() {
+        joinBtn.disabled = false;
+        leaveBtn.disabled = !isConnected;
+        
+        if (!isConnected) {
+          joinBtn.textContent = 'Join';
+        } else {
+          joinBtn.textContent = 'Switch';
+        }
+      }
+      
+      // Request current room status on load
+      setTimeout(() => {
+        ipcRenderer.send('room:get-current');
+      }, 100);
+    </script>
+  </body>
+</html>

@@ -1,3 +1,5 @@
+#OUTDATED
+
 Support App
 
 Super‑MVP: local Electron overlay for interview notes. Overlay is always on top, click‑through, and excluded from screen sharing. Control page at http://localhost:4317 updates notes live.

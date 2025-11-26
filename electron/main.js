@@ -11,8 +11,10 @@ const fs = require("fs");
 let overlayWindow = null;
 let dragWindow = null;
 let resizeWindow = null;
+let roomControlWindow = null;
 let isDraggingOverlay = false;
 let isResizingOverlay = false;
+let currentRoom = "1e21d44448ddc6fc204946fc25b28cc3"; // Default room
 
 // Disable certificate verification for Yjs server (development only)
 app.commandLine.appendSwitch("ignore-certificate-errors");
@@ -153,11 +155,13 @@ function createOverlayWindow() {
   overlayWindow.on("show", () => {
     dragWindow?.showInactive();
     resizeWindow?.showInactive();
+    roomControlWindow?.showInactive();
     positionControlWindows();
   });
   overlayWindow.on("hide", () => {
     dragWindow?.hide();
     resizeWindow?.hide();
+    roomControlWindow?.hide();
   });
 }
 
@@ -240,18 +244,53 @@ function createControlWindows() {
   resizeWindow.setMenuBarVisibility(false);
   console.log("[resizer] Window created at:", resizeWindow.getBounds());
 
+  // Room control window (top-right)
+  roomControlWindow = new BrowserWindow({
+    width: 260,
+    height: 100,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    alwaysOnTop: true,
+    focusable: true, // Make focusable so input can work
+    hasShadow: false,
+    skipTaskbar: true,
+    show: true,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+  roomControlWindow.setAlwaysOnTop(true, "screen-saver");
+  roomControlWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  roomControlWindow.setContentProtection(true); // Exclude from screen sharing
+  roomControlWindow.loadFile(path.join(__dirname, "room-control.html"));
+  roomControlWindow.setMenuBarVisibility(false);
+  console.log("[room-control] Window created at:", roomControlWindow.getBounds());
+
   positionControlWindows();
 }
 
 function positionControlWindows() {
-  if (!overlayWindow || (!dragWindow && !resizeWindow)) return;
+  if (!overlayWindow || (!dragWindow && !resizeWindow && !roomControlWindow)) return;
   const { x, y, width, height } = overlayWindow.getBounds();
   console.log("[positioning] Overlay bounds:", { x, y, width, height });
+  
   // Place pill near top-left of overlay, with small padding
   if (dragWindow && !isDraggingOverlay) {
     dragWindow.setPosition(x + 8, y + 8, false);
     console.log("[positioning] Drag pill at:", { x: x + 8, y: y + 8 });
   }
+  
+  // Place room control near top-right of overlay
+  if (roomControlWindow && !isDraggingOverlay) {
+    const [rcw] = roomControlWindow.getSize();
+    const roomControlX = x + width - rcw - 8;
+    const roomControlY = y + 8;
+    roomControlWindow.setPosition(roomControlX, roomControlY, false);
+    console.log("[positioning] Room control at:", { x: roomControlX, y: roomControlY });
+  }
+  
   // Place resizer near bottom-right (window is 30x30, handle is at bottom-right of that)
   if (resizeWindow && !isResizingOverlay && !isDraggingOverlay) {
     const [rw, rh] = resizeWindow.getSize();
@@ -294,6 +333,70 @@ overlayWindow?.on('resized', () => {
     overlayWindow.webContents.send('window-resize', { 
       width: bounds.width, 
       height: bounds.height 
+    });
+  }
+});
+
+// Room management IPC handlers
+ipcMain.handle("room:get-current", () => {
+  return { room: currentRoom, connected: !!currentRoom };
+});
+
+ipcMain.on("room:join", (event, roomName) => {
+  if (!roomName || roomName.trim() === '') {
+    event.sender.send('room:join-result', { 
+      success: false, 
+      error: 'Room name is required' 
+    });
+    return;
+  }
+
+  const newRoom = roomName.trim();
+  console.log("[room] Joining room:", newRoom);
+  
+  currentRoom = newRoom;
+  
+  // Notify React overlay to switch rooms
+  if (overlayWindow && overlayWindow.webContents) {
+    overlayWindow.webContents.send('room:change', { room: newRoom });
+  }
+  
+  // Send success response
+  event.sender.send('room:join-result', { 
+    success: true, 
+    room: newRoom 
+  });
+  
+  // Update room control window status
+  if (roomControlWindow && roomControlWindow.webContents) {
+    roomControlWindow.webContents.send('room:status', { 
+      room: newRoom, 
+      connected: true 
+    });
+  }
+});
+
+ipcMain.on("room:leave", (event) => {
+  console.log("[room] Leaving current room:", currentRoom);
+  
+  const oldRoom = currentRoom;
+  currentRoom = '';
+  
+  // Notify React overlay to disconnect
+  if (overlayWindow && overlayWindow.webContents) {
+    overlayWindow.webContents.send('room:change', { room: null });
+  }
+  
+  // Send success response
+  event.sender.send('room:leave-result', { 
+    success: true 
+  });
+  
+  // Update room control window status
+  if (roomControlWindow && roomControlWindow.webContents) {
+    roomControlWindow.webContents.send('room:status', { 
+      room: '', 
+      connected: false 
     });
   }
 });

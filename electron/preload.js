@@ -26,5 +26,9 @@ contextBridge.exposeInMainWorld("overlayAPI", {
     ipcRenderer.on("window-resize", (_event, data) => callback(data));
     return () => ipcRenderer.removeAllListeners("window-resize");
   },
+  onRoomChange: (callback) => {
+    ipcRenderer.on("room:change", (_event, data) => callback(data));
+    return () => ipcRenderer.removeAllListeners("room:change");
+  },
 });
 

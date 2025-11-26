@@ -6,21 +6,50 @@ import Placeholder from '@tiptap/extension-placeholder';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 
-const YJS_WS_ENDPOINT = "ws://localhost:8080";
-const YJS_ROOM = "1e21d44448ddc6fc204946fc25b28cc3";
+const YJS_WS_ENDPOINT = __VITE_WS_SERVER_URL__;
 
 function App() {
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const [isSynced, setIsSynced] = useState(false);
   const [editor, setEditor] = useState(null);
+  const [currentRoom, setCurrentRoom] = useState("default"); // Default room
   const ydocRef = useRef(null);
   const providerRef = useRef(null);
   const yxmlFragmentRef = useRef(null);
 
 
+  // Listen for room changes from main process
+  useEffect(() => {
+    if (!window.overlayAPI) return;
+
+    const handleRoomChange = ({ room }) => {
+      console.log("[overlay] Room change requested:", room);
+      if (room === null) {
+        // Leave room - disconnect but don't connect to new room
+        setCurrentRoom('');
+      } else if (room && room !== currentRoom) {
+        // Switch to new room
+        setCurrentRoom(room);
+      }
+    };
+
+    // Listen for room change events
+    const cleanup = window.overlayAPI.onRoomChange ? 
+      window.overlayAPI.onRoomChange(handleRoomChange) : null;
+
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, [currentRoom]);
+
   // Initialize Yjs first
   useEffect(() => {
-    console.log("[overlay] Connecting to Yjs server:", YJS_WS_ENDPOINT, "room:", YJS_ROOM);
+    if (!currentRoom) {
+      console.log("[overlay] No room specified, not connecting");
+      return;
+    }
+
+    console.log("[overlay] Connecting to Yjs server:", YJS_WS_ENDPOINT, "room:", currentRoom);
 
     // Create Yjs document
     const ydoc = new Y.Doc();
@@ -33,7 +62,7 @@ function App() {
     console.log("[overlay] Created Yjs XML fragment: prosemirror");
 
     // Connect to Yjs WebSocket server
-    const provider = new WebsocketProvider(YJS_WS_ENDPOINT, YJS_ROOM, ydoc);
+    const provider = new WebsocketProvider(YJS_WS_ENDPOINT, currentRoom, ydoc);
     providerRef.current = provider;
 
     // Ensure provider exposes the doc
@@ -107,6 +136,7 @@ function App() {
 
     // Cleanup
     return () => {
+      console.log("[overlay] Cleaning up Yjs connection for room:", currentRoom);
       if (provider) {
         provider.off("synced", handleSynced);
         provider.destroy();
@@ -115,8 +145,11 @@ function App() {
         ydoc.off("update", logDocUpdate);
         ydoc.destroy();
       }
+      // Reset states when switching rooms
+      setIsSynced(false);
+      setConnectionStatus('connecting');
     };
-  }, []);
+  }, [currentRoom]);
 
   // Create/destroy TipTap editor manually to align with working client logic
   useEffect(() => {
@@ -247,10 +280,11 @@ function App() {
         <EditorContent editor={editor} />
       )}
       <div className="hint">
-        {!editor && 'Initializing...'}
-        {editor && connectionStatus === 'connecting' && 'Connecting to Yjs server...'}
-        {editor && connectionStatus === 'connected' && 'Connected • Toggle: Ctrl+Shift+Space • Reset: Ctrl+Shift+R'}
-        {editor && connectionStatus === 'disconnected' && 'Disconnected. Reconnecting...'}
+        {!currentRoom && 'No room selected'}
+        {currentRoom && !editor && 'Initializing...'}
+        {currentRoom && editor && connectionStatus === 'connecting' && `Connecting to room: ${currentRoom}...`}
+        {currentRoom && editor && connectionStatus === 'connected' && `Connected to room: ${currentRoom} • Toggle: Ctrl+Shift+Space • Reset: Ctrl+Shift+R`}
+        {currentRoom && editor && connectionStatus === 'disconnected' && 'Disconnected. Reconnecting...'}
       </div>
     </div>
   );
